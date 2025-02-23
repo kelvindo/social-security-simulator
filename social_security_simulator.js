@@ -149,8 +149,14 @@ function calculateAndDisplay() {
         const lateBenefitCell = document.createElement('td');
 
         ageCell.textContent = ages[i];
-        earlyBenefitCell.textContent = results[`age_${startAgeEarly}`][i].toFixed(2);
-        lateBenefitCell.textContent = results[`age_${startAgeLate}`][i].toFixed(2);
+        earlyBenefitCell.textContent = results[`age_${startAgeEarly}`][i].toLocaleString('en-US', { 
+            style: 'currency', 
+            currency: 'USD' 
+        });
+        lateBenefitCell.textContent = results[`age_${startAgeLate}`][i].toLocaleString('en-US', { 
+            style: 'currency', 
+            currency: 'USD' 
+        });
 
         row.appendChild(ageCell);
         row.appendChild(earlyBenefitCell);

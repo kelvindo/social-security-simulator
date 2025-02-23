@@ -15,9 +15,9 @@
 </head>
 <body>
     <div class="container">
-        <h1>Social Security Breakeven Calculator</h1>
+        <h1 class="mb-5">Social Security Breakeven Calculator</h1>
 
-        <div class="row">
+        <div class="row mb-5">
             <div class="col-md-6">
                 <h2>Inputs</h2>
                 <form id="calculatorForm">
@@ -46,24 +46,30 @@
             </div>
         </div>
 
-        <h2>Breakeven Analysis</h2>
-        <div id="chartContainer">
-            <canvas id="breakevenChart"></canvas>
+        <div class="mb-5">
+            <h2>Breakeven Analysis</h2>
+            <div id="chartContainer">
+                <canvas id="breakevenChart"></canvas>
+            </div>
+            <div class="alert alert-info mt-3" role="alert">
+                <p id="breakevenResult" class="h4 mb-0"></p>
+            </div>
         </div>
-        <p id="breakevenResult"></p>
 
-        <h2>Cumulative Benefits Table</h2>
-        <table class="table table-striped" id="resultsTable">
-            <thead>
-                <tr>
-                    <th>Age</th>
-                    <th id="earlyAgeHeader">Cumulative Benefit (Age 62)</th>
-                    <th id="lateAgeHeader">Cumulative Benefit (Age 67)</th>
-                </tr>
-            </thead>
-            <tbody id="resultsTableBody">
-            </tbody>
-        </table>
+        <div class="mb-5">
+            <h2>Cumulative Benefits Table</h2>
+            <table class="table table-striped" id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>Age</th>
+                        <th id="earlyAgeHeader">Cumulative Benefit (Age <span class="early-age">62</span>)</th>
+                        <th id="lateAgeHeader">Cumulative Benefit (Age <span class="late-age">67</span>)</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody">
+                </tbody>
+            </table>
+        </div>
     </div>
 </body>
 </html>
