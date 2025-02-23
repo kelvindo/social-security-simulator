@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Security Breakeven Calculator</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        #chartContainer { width: 100%; height: 400px; } /* Style for the chart */
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Social Security Breakeven Calculator</h1>
+
+        <div class="row">
+            <div class="col-md-6">
+                <h2>Inputs</h2>
+                <form id="calculatorForm">
+                    <div class="form-group">
+                        <label for="benefitFra">Monthly Benefit at Full Retirement Age (67):</label>
+                        <input type="number" class="form-control" id="benefitFra" value="2000" step="100" min="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="startAgeEarly">Start Age (Earlier):</label>
+                        <input type="number" class="form-control" id="startAgeEarly" value="62" step="1" min="62" max="70">
+                    </div>
+                    <div class="form-group">
+                        <label for="startAgeLate">Start Age (Later):</label>
+                        <input type="number" class="form-control" id="startAgeLate" value="67" step="1" min="62" max="70">
+                    </div>
+                    <div class="form-group">
+                        <label for="annualReturn">Annual Investment Return Rate (%):</label>
+                        <input type="number" class="form-control" id="annualReturn" value="6.0" step="0.1" min="0" max="20">
+                    </div>
+                    <div class="form-group">
+                        <label for="maxAge">Maximum Age:</label>
+                        <input type="number" class="form-control" id="maxAge" value="100" step="1" min="70" max="110">
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="calculateAndDisplay()">Calculate</button>
+                </form>
+            </div>
+        </div>
+
+        <h2>Breakeven Analysis</h2>
+        <div id="chartContainer">
+            <canvas id="breakevenChart"></canvas>
+        </div>
+        <p id="breakevenResult"></p>
+
+        <h2>Cumulative Benefits Table</h2>
+        <table class="table table-striped" id="resultsTable">
+            <thead>
+                <tr>
+                    <th>Age</th>
+                    <th id="earlyAgeHeader">Cumulative Benefit (Age 62)</th>
+                    <th id="lateAgeHeader">Cumulative Benefit (Age 67)</th>
+                </tr>
+            </thead>
+            <tbody id="resultsTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+    let myChart = null; // Store the chart instance globally
+
+    function calculateSocialSecurityBreakeven(benefitFra, annualReturn, startAgeEarly, startAgeLate, maxAge) {
+        function calculateBenefitAdjustment(claimingAge) {
+            const fraMonths = 67 * 12;
+            const claimingMonths = claimingAge * 12;
+            const monthsDifference = claimingMonths - fraMonths;
+
+            if (monthsDifference < 0) {
+                if (monthsDifference >= -36) {
+                    const reduction = monthsDifference * (5 / 9 / 100);
+                    return benefitFra * (1 + reduction);
+                } else {
+                    const reduction = (-36 * (5 / 9 / 100)) + ((monthsDifference + 36) * (5 / 12 / 100));
+                    return benefitFra * (1 + reduction);
+                }
+            } else if (monthsDifference > 0) {
+                const increase = monthsDifference * (2 / 3 / 100);
+                return benefitFra * (1 + increase);
+            } else {
+                return benefitFra;
+            }
+        }
+
+        const benefitEarly = calculateBenefitAdjustment(startAgeEarly);
+        const benefitLate = calculateBenefitAdjustment(startAgeLate);
+
+        const monthlyReturn = Math.pow(1 + annualReturn, 1 / 12) - 1;
+        const results = { [`age_${startAgeEarly}`]: [], [`age_${startAgeLate}`]: [] };
+        let cumulativeEarly = 0;
+        let cumulativeLate = 0;
+
+        for (let age = Math.min(startAgeEarly, startAgeLate); age <= maxAge; age++) {
+            if (age >= startAgeEarly) {
+                for (let month = 0; month < 12; month++) {
+                    cumulativeEarly += benefitEarly;
+                    cumulativeEarly *= (1 + monthlyReturn);
+                }
+                results[`age_${startAgeEarly}`].push(cumulativeEarly);
+            } else {
+                results[`age_${startAgeEarly}`].push(0);
+            }
+
+            if (age >= startAgeLate) {
+                for (let month = 0; month < 12; month++) {
+                    cumulativeLate += benefitLate;
+                    cumulativeLate *= (1 + monthlyReturn);
+                }
+                results[`age_${startAgeLate}`].push(cumulativeLate);
+            } else {
+                results[`age_${startAgeLate}`].push(0);
+            }
+        }
+
+        let breakevenAge = null;
+        const start_index_late = startAgeLate - startAgeEarly
+        for (let i = start_index_late; i < results[`age_${startAgeEarly}`].length; i++) {
+            if (results[`age_${startAgeLate}`][i] > results[`age_${startAgeEarly}`][i]) {
+                breakevenAge = i + startAgeEarly;
+                break;
+            }
+        }
+        return { results, breakevenAge };
+    }
+
+    function plotBreakeven(results, startAgeEarly, startAgeLate) {
+        const ages = Array.from({ length: results[`age_${startAgeEarly}`].length }, (_, i) => i + Math.min(startAgeEarly, startAgeLate));
+
+        const ctx = document.getElementById('breakevenChart').getContext('2d');
+
+        // Destroy the previous chart instance if it exists
+        if (myChart) {
+            myChart.destroy();
+        }
+
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ages,
+                datasets: [{
+                    label: `Claim at ${startAgeEarly}`,
+                    data: results[`age_${startAgeEarly}`],
+                    borderColor: 'blue',
+                    fill: false
+                }, {
+                    label: `Claim at ${startAgeLate}`,
+                    data: results[`age_${startAgeLate}`],
+                    borderColor: 'red',
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false, // Allow custom height
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Age'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Cumulative Benefits'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+
+
+    function calculateAndDisplay() {
+        const benefitFra = parseFloat(document.getElementById('benefitFra').value);
+        const startAgeEarly = parseInt(document.getElementById('startAgeEarly').value);
+        const startAgeLate = parseInt(document.getElementById('startAgeLate').value);
+        const annualReturn = parseFloat(document.getElementById('annualReturn').value) / 100;
+        const maxAge = parseInt(document.getElementById('maxAge').value);
+
+        if (startAgeEarly >= startAgeLate) {
+            alert("The earlier starting age must be less than the later starting age.");
+            return;
+        }
+
+        const { results, breakevenAge } = calculateSocialSecurityBreakeven(benefitFra, annualReturn, startAgeEarly, startAgeLate, maxAge);
+
+        plotBreakeven(results, startAgeEarly, startAgeLate);
+
+        const breakevenResultElement = document.getElementById('breakevenResult');
+        if (breakevenAge !== null) {
+            breakevenResultElement.textContent = `The breakeven age is approximately: ${breakevenAge}`;
+        } else {
+            breakevenResultElement.textContent = "Breakeven not reached by the maximum age considered.";
+        }
+
+        // Update table
+        const tableBody = document.getElementById('resultsTableBody');
+        tableBody.innerHTML = ''; // Clear previous table data
+        const ages = Array.from({ length: results[`age_${startAgeEarly}`].length }, (_, i) => i + Math.min(startAgeEarly, startAgeLate));
+
+         // Update table headers with correct ages
+        document.getElementById('earlyAgeHeader').textContent = `Cumulative Benefit (Age ${startAgeEarly})`;
+        document.getElementById('lateAgeHeader').textContent = `Cumulative Benefit (Age ${startAgeLate})`;
+
+        for (let i = 0; i < ages.length; i++) {
+            const row = document.createElement('tr');
+            const ageCell = document.createElement('td');
+            const earlyBenefitCell = document.createElement('td');
+            const lateBenefitCell = document.createElement('td');
+
+            ageCell.textContent = ages[i];
+            earlyBenefitCell.textContent = results[`age_${startAgeEarly}`][i].toFixed(2);
+            lateBenefitCell.textContent = results[`age_${startAgeLate}`][i].toFixed(2);
+
+            row.appendChild(ageCell);
+            row.appendChild(earlyBenefitCell);
+            row.appendChild(lateBenefitCell);
+            tableBody.appendChild(row);
+        }
+    }
+
+
+    // Initial calculation on page load (using default values)
+    window.onload = calculateAndDisplay;
+    </script>
+</body>
+</html>
